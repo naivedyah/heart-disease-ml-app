@@ -1,24 +1,23 @@
+
 import pandas as pd
+import joblib
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
-from sklearn.metrics import (
-    accuracy_score, roc_auc_score, precision_score,
-    recall_score, f1_score, matthews_corrcoef
-)
+from sklearn.metrics import accuracy_score, roc_auc_score, precision_score, recall_score, f1_score, matthews_corrcoef
 
-# Load dataset
+from model.logistic_regression import build_model as lr_model
+from model.decision_tree import build_model as dt_model
+from model.knn import build_model as knn_model
+from model.naive_bayes import build_model as nb_model
+from model.random_forest import build_model as rf_model
+from model.xgboost_model import build_model as xgb_model
+
 df = pd.read_csv("data/heart.csv")
 
 X = df.drop("target", axis=1)
 y = df["target"]
 
-# 80/20 split
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
@@ -27,32 +26,30 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-models = {
-    "Logistic Regression": (LogisticRegression(max_iter=1000), X_train_scaled, X_test_scaled),
-    "Decision Tree": (DecisionTreeClassifier(random_state=42), X_train, X_test),
-    "KNN": (KNeighborsClassifier(n_neighbors=5), X_train_scaled, X_test_scaled),
-    "Naive Bayes": (GaussianNB(), X_train_scaled, X_test_scaled),
-    "Random Forest": (RandomForestClassifier(n_estimators=100, random_state=42), X_train, X_test),
-    "XGBoost": (XGBClassifier(eval_metric="logloss", use_label_encoder=False, random_state=42), X_train, X_test),
-}
+Path("model").mkdir(exist_ok=True)
+joblib.dump(scaler, "model/scaler.pkl")
 
-print("\nModel Performance (Internal 20% Test Split)\n")
+models = {
+    "logistic_regression": (lr_model(), X_train_scaled, X_test_scaled),
+    "decision_tree": (dt_model(), X_train, X_test),
+    "knn": (knn_model(), X_train_scaled, X_test_scaled),
+    "naive_bayes": (nb_model(), X_train_scaled, X_test_scaled),
+    "random_forest": (rf_model(), X_train, X_test),
+    "xgboost": (xgb_model(), X_train, X_test),
+}
 
 for name, (model, Xtr, Xte) in models.items():
     model.fit(Xtr, y_train)
     y_pred = model.predict(Xte)
     y_prob = model.predict_proba(Xte)[:, 1]
 
-    metrics = {
-        "Accuracy": accuracy_score(y_test, y_pred),
-        "AUC": roc_auc_score(y_test, y_prob),
-        "Precision": precision_score(y_test, y_pred),
-        "Recall": recall_score(y_test, y_pred),
-        "F1": f1_score(y_test, y_pred),
-        "MCC": matthews_corrcoef(y_test, y_pred),
-    }
+    print(name)
+    print("Accuracy:", accuracy_score(y_test, y_pred))
+    print("AUC:", roc_auc_score(y_test, y_prob))
+    print("Precision:", precision_score(y_test, y_pred))
+    print("Recall:", recall_score(y_test, y_pred))
+    print("F1:", f1_score(y_test, y_pred))
+    print("MCC:", matthews_corrcoef(y_test, y_pred))
+    print("-" * 30)
 
-    print(f"{name}:")
-    for k, v in metrics.items():
-        print(f"  {k}: {v:.4f}")
-    print("-" * 40)
+    joblib.dump(model, f"model/{name}.pkl")
