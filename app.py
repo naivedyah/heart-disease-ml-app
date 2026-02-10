@@ -38,8 +38,9 @@ st.markdown(
 )
 
 st.info(
-    "Models are trained offline using **train_models.py** and loaded here as `.pkl` files. "
-    "You can evaluate using the official test dataset from the repository or upload your own labeled test CSV."
+    "Models are trained offline using **train_models.py** and loaded as `.pkl` files. "
+    "By default, evaluation results are shown immediately. You may optionally switch "
+    "to the official test dataset from the repository to reproduce the same results."
 )
 
 # -------------------------------------------------
@@ -59,50 +60,34 @@ models = {
 model_name = st.sidebar.selectbox("Select ML Model", list(models.keys()))
 
 # -------------------------------------------------
-# Load scaler and model (NO TRAINING)
+# Load scaler and model
 # -------------------------------------------------
 scaler = joblib.load("model/scaler.pkl")
 model = joblib.load(models[model_name])
 
 # -------------------------------------------------
-# Test dataset selection
+# Dataset selection (DEFAULT FIRST)
 # -------------------------------------------------
-st.subheader("📤 Test Dataset Selection")
+st.subheader("📂 Evaluation Dataset")
 
-test_mode = st.radio(
-    "Choose test data source:",
-    ["Use official test dataset (from repo)", "Upload custom test dataset"]
+dataset_choice = st.selectbox(
+    "Select dataset for evaluation:",
+    ["Default dataset", "Official test dataset (data/test.csv)"]
 )
 
-if test_mode == "Use official test dataset (from repo)":
+if dataset_choice == "Official test dataset (data/test.csv)":
     if not os.path.exists("data/test.csv"):
-        st.error("Official test.csv not found in data/ directory.")
+        st.error("data/test.csv not found in the repository.")
         st.stop()
 
-    test_df = pd.read_csv("data/test.csv")
-    X_test = test_df.drop("target", axis=1)
-    y_test = test_df["target"]
+    df = pd.read_csv("data/test.csv")
     st.success("📌 Evaluating on official test dataset (data/test.csv)")
-
 else:
-    uploaded_file = st.file_uploader(
-        "Upload labeled test CSV (same features + target)",
-        type=["csv"]
-    )
+    df = pd.read_csv("data/heart.csv")
+    st.info("📌 Evaluating on default dataset")
 
-    if uploaded_file is None:
-        st.warning("Please upload a labeled test CSV to proceed.")
-        st.stop()
-
-    test_df = pd.read_csv(uploaded_file)
-
-    if "target" not in test_df.columns:
-        st.error("Uploaded CSV must contain a `target` column.")
-        st.stop()
-
-    X_test = test_df.drop("target", axis=1)
-    y_test = test_df["target"]
-    st.success("📌 Evaluating on uploaded test dataset")
+X_test = df.drop("target", axis=1)
+y_test = df["target"]
 
 # -------------------------------------------------
 # Feature scaling (only where required)
@@ -137,7 +122,7 @@ for col, (metric, value) in zip(cols, metrics.items()):
     col.metric(metric, f"{value:.3f}")
 
 # -------------------------------------------------
-# Confusion Matrix (compact & clean)
+# Confusion Matrix (compact)
 # -------------------------------------------------
 st.subheader("🔍 Confusion Matrix")
 
