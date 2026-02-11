@@ -27,8 +27,8 @@ st.markdown(
 
 st.info(
     "Models are trained offline and loaded as `.pkl` files. "
-    "By default, models are evaluated on a 20% test split of the dataset. "
-    "You may optionally select the saved test dataset to reproduce results."
+    "By default, models are evaluated on a reproducible 20% test split. "
+    "You may download the official test dataset and re-upload it to reproduce results."
 )
 
 # -------------------------------------------------
@@ -54,18 +54,44 @@ model = joblib.load(model_paths[model_name])
 scaler = joblib.load("model/scaler.pkl")
 
 # -------------------------------------------------
-# Dataset selection (ONLY test.csv here)
+# Official test dataset download
 # -------------------------------------------------
-st.subheader("📂 Evaluation Dataset")
+st.subheader("📂 Official Test Dataset")
 
-use_saved_test = st.checkbox(
-    "Use saved test dataset (data/test.csv)"
+with open("data/test.csv", "rb") as f:
+    st.download_button(
+        label="📥 Download Official Test Dataset (test.csv)",
+        data=f,
+        file_name="test.csv",
+        mime="text/csv"
+    )
+
+st.markdown("---")
+
+# -------------------------------------------------
+# Upload option
+# -------------------------------------------------
+st.subheader("📤 Upload Test Dataset (Optional)")
+
+uploaded_file = st.file_uploader(
+    "Upload a labeled test CSV (same features + target)",
+    type=["csv"]
 )
 
-if use_saved_test:
-    df = pd.read_csv("data/test.csv")
-    st.success("📌 Evaluating on saved test dataset (data/test.csv)")
+# -------------------------------------------------
+# Prepare evaluation dataset
+# -------------------------------------------------
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+
+    if "target" not in df.columns:
+        st.error("Uploaded CSV must contain a 'target' column.")
+        st.stop()
+
+    st.success("📌 Evaluating on uploaded test dataset")
+
 else:
+    # Default internal 20% split
     df_full = pd.read_csv("data/heart.csv")
 
     X = df_full.drop("target", axis=1)
@@ -82,6 +108,11 @@ else:
     df = X_test.copy()
     df["target"] = y_test.values
 
+    st.info("📌 Evaluating on internal 20% test split")
+
+# -------------------------------------------------
+# Separate features and labels
+# -------------------------------------------------
 X_test = df.drop("target", axis=1)
 y_test = df["target"]
 
@@ -118,7 +149,7 @@ for col, (name, value) in zip(cols, metrics.items()):
     col.metric(name, f"{value:.3f}")
 
 # -------------------------------------------------
-# Confusion Matrix (compact)
+# Confusion Matrix (compact & clean)
 # -------------------------------------------------
 st.subheader("🔍 Confusion Matrix")
 
